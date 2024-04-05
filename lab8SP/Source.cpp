@@ -1,44 +1,44 @@
 #include <iostream>
-#include <vector>
+#include <list>
 #include <string>
 #include <exception>
-
 #include "cheese.h"
+
+using namespace std;
 
 namespace cheese_shop {
     class CheeseStack {
     private:
-        std::vector<Cheese> stack;
+        list<Cheese*> stack;
 
     public:
         void push(const Cheese& cheese) {
-            stack.push_back(cheese);
+            stack.push_back(new Cheese(cheese));
         }
 
         Cheese pop() {
             if (stack.empty()) {
-                throw std::out_of_range("стек пуст. Невозможно извлечь элемент.");
+                throw out_of_range("Стек пуст. Невозможно извлечь элемент.");
             }
-
-            Cheese topCheese = stack.back();
+            Cheese* topCheese = stack.back();
             stack.pop_back();
-
-            return topCheese;
+            Cheese result = *topCheese;
+            delete topCheese;
+            return result;
         }
 
         Cheese getAtPosition(int position) {
-            if (position >= stack.size() || position < 0) {
-                throw std::out_of_range("позиция выходит за границы стека.");
+            if (position < 0 || static_cast<size_t>(position) >= stack.size()) {
+                throw out_of_range("Позиция вне диапазона стека.");
             }
-
-            return stack[position];
+            auto it = next(stack.begin(), position);
+            return **it;
         }
 
-        int countBrand(const std::string& brand) {
+        int countBrand(const string& brand) {
             int count = 0;
-
-            for (const auto& cheese : stack) {
-                if (cheese.brand == brand) {
+            for (const auto& cheesePtr : stack) {
+                if (cheesePtr->brand == brand) {
                     count++;
                 }
             }
@@ -46,20 +46,24 @@ namespace cheese_shop {
             if (count == 0) {
                 return -1;
             }
-
             return count;
         }
 
-        std::vector<Cheese> getByFatPercent(float fatPercent) {
-            std::vector<Cheese> result;
-
-            for (const auto& cheese : stack) {
-                if (cheese.fatPercent == fatPercent) {
-                    result.push_back(cheese);
+        list<Cheese> getByFatPercent(float fatPercent) {
+            list<Cheese> result;
+            for (const auto& cheesePtr : stack) {
+                if (cheesePtr->fatPercent == fatPercent) {
+                    result.push_back(*cheesePtr);
                 }
             }
-
             return result;
+        }
+
+        ~CheeseStack() {
+            for (const auto& cheesePtr : stack) {
+                delete cheesePtr;
+            }
+            stack.clear();
         }
     };
 }
@@ -76,21 +80,21 @@ int main() {
         cheeseStack.push(mozzarella);
 
         cheese_shop::Cheese topCheese = cheeseStack.pop();
-        std::cout << "извлеченный сыр: \nбренд: " << topCheese.brand << ", \nпроизводитель: " << topCheese.manufacturer << ", \nжирность: " << topCheese.fatPercent << ", \nцена: " << topCheese.price << "\n" << std::endl;
+        cout << "Извлеченный сыр: \nБренд: " << topCheese.brand << ", \nПроизводитель: " << topCheese.manufacturer << ", \nЖирность: " << topCheese.fatPercent << ", \nЦена: " << topCheese.price << "\n" << endl;
 
         cheese_shop::Cheese specificCheese = cheeseStack.getAtPosition(0);
-        std::cout << "сыр на позиции 0: \nбренд: " << specificCheese.brand << ", \nпроизводитель: " << specificCheese.manufacturer << ", \nжирность: " << specificCheese.fatPercent << ", \nцена: " << specificCheese.price << "\n" << std::endl;
+        cout << "Сыр на позиции 0: \nБренд: " << specificCheese.brand << ", \nПроизводитель: " << specificCheese.manufacturer << ", \nЖирность: " << specificCheese.fatPercent << ", \nЦена: " << specificCheese.price << "\n" << endl;
 
         int brandCount = cheeseStack.countBrand("тартар");
-        std::cout << "количество сыров тартар в стеке: " << brandCount << "\n" << std::endl;
+        cout << "Количество сыров тартар в стеке: " << brandCount << "\n" << endl;
 
-        std::vector<cheese_shop::Cheese> fatCheeses = cheeseStack.getByFatPercent(30.5);
+        list<cheese_shop::Cheese> fatCheeses = cheeseStack.getByFatPercent(30.5);
         for (const auto& cheese : fatCheeses) {
-            std::cout << "сыр с жирностью 30.5%: \nбренд: " << cheese.brand << ", \nпроизводитель: " << cheese.manufacturer << ", \nжирность: " << cheese.fatPercent << ", \nцена: " << cheese.price  << "\n" << std::endl;
+            cout << "Сыр с жирностью 30.5%: \nБренд: " << cheese.brand << ", \nПроизводитель: " << cheese.manufacturer << ", \nЖирность: " << cheese.fatPercent << ", \nЦена: " << cheese.price << "\n" << endl;
         }
     }
-    catch (const std::exception& e) {
-        std::cerr << "исключение: " << e.what() << std::endl;
+    catch (const exception& e) {
+        cerr << "Исключение: " << e.what() << endl;
     }
 
     return 0;
