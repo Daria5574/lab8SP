@@ -1,97 +1,233 @@
 #include <iostream>
-#include <list>
 #include <string>
-#include <exception>
+#include <list>
+#include <stdexcept>
 #include "cheese.h"
 
 using namespace std;
 
 namespace cheese_shop {
-    class CheeseStack {
+    struct Node {
+        Cheese data;
+        Node* left;
+        Node* right;
+
+        Node(const Cheese& cheese) : data(cheese), left(nullptr), right(nullptr) {}
+    };
+
+    class CheeseBinarySearchTree {
     private:
-        list<Cheese*> stack;
+        Node* root;
 
     public:
-        void push(const Cheese& cheese) {
-            stack.push_back(new Cheese(cheese));
+        CheeseBinarySearchTree() : root(nullptr) {}
+
+        Node* insertRecursive(Node* currentNode, const Cheese& cheese) {
+            if (currentNode == nullptr) {
+                return new Node(cheese);
+            }
+
+            if (cheese.brand < currentNode->data.brand) {
+                currentNode->left = insertRecursive(currentNode->left, cheese);
+            }
+            else {
+                currentNode->right = insertRecursive(currentNode->right, cheese);
+            }
+
+            return currentNode;
         }
 
-        Cheese pop() {
-            if (stack.empty()) {
-                throw out_of_range("Стек пуст. Невозможно извлечь элемент.");
+        void insert(const Cheese& cheese) {
+            root = insertRecursive(root, cheese);
+        }
+        Cheese extractCheese() {
+            if (root == nullptr) {
+                throw runtime_error("Дерево сыров пустое.");
             }
-            Cheese* topCheese = stack.back();
-            stack.pop_back();
-            Cheese result = *topCheese;
-            delete topCheese;
-            return result;
+            Node* extractedNode = findMin(root);
+            Cheese extractedCheese = extractedNode->data;
+            root = deleteRecursive(root, extractedCheese.brand);
+            return extractedCheese;
         }
 
-        Cheese getAtPosition(int position) {
-            if (position < 0 || static_cast<size_t>(position) >= stack.size()) {
-                throw out_of_range("Позиция вне диапазона стека.");
+        Node* findMin(Node* currentNode) {
+            while (currentNode->left != nullptr) {
+                currentNode = currentNode->left;
             }
-            auto it = next(stack.begin(), position);
-            return **it;
+            return currentNode;
+        }
+
+        Node* deleteRecursive(Node* currentNode, const string& brand) {
+            if (currentNode == nullptr) return currentNode;
+
+            if (brand < currentNode->data.brand) {
+                currentNode->left = deleteRecursive(currentNode->left, brand);
+            }
+            else if (brand > currentNode->data.brand) {
+                currentNode->right = deleteRecursive(currentNode->right, brand);
+            }
+            else {
+                if (currentNode->left == nullptr) {
+                    Node* temp = currentNode->right;
+                    delete currentNode;
+                    return temp;
+                }
+                else if (currentNode->right == nullptr) {
+                    Node* temp = currentNode->left;
+                    delete currentNode;
+                    return temp;
+                }
+                Node* minRight = findMin(currentNode->right);
+                currentNode->data = minRight->data;
+                currentNode->right = deleteRecursive(currentNode->right, minRight->data.brand);
+            }
+
+            return currentNode;
+        }
+
+        void remove(const string& brand) {
+            root = deleteRecursive(root, brand);
+        }
+
+        Node* search(Node* currentNode, const string& brand) {
+            if (currentNode == nullptr || currentNode->data.brand == brand) {
+                return currentNode;
+            }
+
+            if (brand < currentNode->data.brand) {
+                return search(currentNode->left, brand);
+            }
+            else {
+                return search(currentNode->right, brand);
+            }
+        }
+
+        Cheese searchCheese(const string& brand) {
+            Node* resultNode = search(root, brand);
+            if (resultNode == nullptr) {
+                throw runtime_error("Сыр с таким брендом не найден в дереве.");
+            }
+
+            return resultNode->data;
         }
 
         int countBrand(const string& brand) {
             int count = 0;
-            for (const auto& cheesePtr : stack) {
-                if (cheesePtr->brand == brand) {
-                    count++;
-                }
+            countBrandHelper(root, brand, count);
+            return count;
+        }
+
+        void countBrandHelper(Node* currentNode, const string& brand, int& count) {
+            if (currentNode == nullptr) {
+                return;
             }
 
-            if (count == 0) {
-                return -1;
+            countBrandHelper(currentNode->left, brand, count);
+            if (currentNode->data.brand == brand) {
+                count++;
             }
-            return count;
+            countBrandHelper(currentNode->right, brand, count);
         }
 
         list<Cheese> getByFatPercent(float fatPercent) {
             list<Cheese> result;
-            for (const auto& cheesePtr : stack) {
-                if (cheesePtr->fatPercent == fatPercent) {
-                    result.push_back(*cheesePtr);
-                }
-            }
+            getByFatPercentHelper(root, fatPercent, result);
             return result;
         }
 
-        ~CheeseStack() {
-            for (const auto& cheesePtr : stack) {
-                delete cheesePtr;
+        Cheese getAtPosition(int position) {
+            list<Cheese> cheeseList = inorderTraversal();
+            if (position < 0 || position >= cheeseList.size()) {
+                throw out_of_range("Позиция выходит за пределы списка сыров.");
             }
-            stack.clear();
+            auto it = cheeseList.begin();
+            advance(it, position);
+            return *it;
+        }
+        list<Cheese> inorderTraversal() {
+            list<Cheese> result;
+            inorderTraversalHelper(root, result);
+            return result;
+        }
+        void inorderTraversalHelper(Node* currentNode, list<Cheese>& result) {
+            if (currentNode == nullptr) {
+                return;
+            }
+            inorderTraversalHelper(currentNode->left, result);
+            result.push_back(currentNode->data);
+            inorderTraversalHelper(currentNode->right, result);
+        }
+
+        void getByFatPercentHelper(Node* currentNode, float fatPercent, list<Cheese>& result) {
+            if (currentNode == nullptr) {
+                return;
+            }
+
+            getByFatPercentHelper(currentNode->left, fatPercent, result);
+            if (currentNode->data.fatPercent == fatPercent) {
+                result.push_back(currentNode->data);
+            }
+            getByFatPercentHelper(currentNode->right, fatPercent, result);
+        }
+
+        ~CheeseBinarySearchTree() {
+            deleteEntireTree(root);
+        }
+
+        void deleteEntireTree(Node* currentNode) {
+            if (currentNode == nullptr) {
+                return;
+            }
+
+            deleteEntireTree(currentNode->left);
+            deleteEntireTree(currentNode->right);
+            delete currentNode;
         }
     };
 }
 
 int main() {
     setlocale(LC_ALL, "Russian");
-    cheese_shop::CheeseStack cheeseStack;
+
+    cheese_shop::CheeseBinarySearchTree cheeseTree;
+
+    cheese_shop::Cheese tartar{ "тартар", "татарстан", 30.5, 1000 };
+    cheese_shop::Cheese mozzarella{ "моцарелла", "великобритания", 20.0, 500 };
+
+    cheeseTree.insert(tartar);
+    cheeseTree.insert(mozzarella);
 
     try {
-        cheese_shop::Cheese tartar{ "тартар", "татарстан", 30.5, 1000 };
-        cheese_shop::Cheese mozzarella{ "моцарелла", "великобритания", 20.0, 500 };
 
-        cheeseStack.push(tartar);
-        cheeseStack.push(mozzarella);
-
-        cheese_shop::Cheese topCheese = cheeseStack.pop();
-        cout << "Извлеченный сыр: \nБренд: " << topCheese.brand << ", \nПроизводитель: " << topCheese.manufacturer << ", \nЖирность: " << topCheese.fatPercent << ", \nЦена: " << topCheese.price << "\n" << endl;
-
-        cheese_shop::Cheese specificCheese = cheeseStack.getAtPosition(0);
-        cout << "Сыр на позиции 0: \nБренд: " << specificCheese.brand << ", \nПроизводитель: " << specificCheese.manufacturer << ", \nЖирность: " << specificCheese.fatPercent << ", \nЦена: " << specificCheese.price << "\n" << endl;
-
-        int brandCount = cheeseStack.countBrand("тартар");
-        cout << "Количество сыров тартар в стеке: " << brandCount << "\n" << endl;
-
-        list<cheese_shop::Cheese> fatCheeses = cheeseStack.getByFatPercent(30.5);
+        list<cheese_shop::Cheese> fatCheeses = cheeseTree.getByFatPercent(30.5);
+        cout << "Сыры с жирностью 30.5%: " << endl;
         for (const auto& cheese : fatCheeses) {
-            cout << "Сыр с жирностью 30.5%: \nБренд: " << cheese.brand << ", \nПроизводитель: " << cheese.manufacturer << ", \nЖирность: " << cheese.fatPercent << ", \nЦена: " << cheese.price << "\n" << endl;
+            cout << "Бренд: " << cheese.brand << ", Производитель: " << cheese.manufacturer << ", Жирность: " << cheese.fatPercent << ", Цена: " << cheese.price << endl;
         }
+
+        cout << "\nИзвлечение первого элемента из дерева:" << endl;
+        cheese_shop::Cheese extractedCheese = cheeseTree.extractCheese();
+        cout << "Извлеченный сыр: " << extractedCheese.brand << ", производитель: " << extractedCheese.manufacturer << ", жирность: " << extractedCheese.fatPercent << ", цена: " << extractedCheese.price << endl;
+
+        cout << "\nПолучение элемента по позиции 0:" << endl;
+        cheese_shop::Cheese positionCheese = cheeseTree.getAtPosition(0);
+        cout << "Позиция 0: " << positionCheese.brand << ", производитель: " << positionCheese.manufacturer << ", жирность: " << positionCheese.fatPercent << ", цена: " << positionCheese.price << endl;
+ 
+        cout << "\n" << "Удаление сорта сыра 'тартар' из дерева" << endl;
+        cheeseTree.remove("тартар");
+
+        cout << "Поиск удаленного сорта сыра 'тартар' после удаления" << endl;
+        cheeseTree.searchCheese("тартар");
+
+        int brandCount = cheeseTree.countBrand("пармезан"); // Проверка на марку сыра, которой нет в дереве
+        if (brandCount == 0) {
+            cout << "Количество сыров 'пармезан' в дереве: " << -1 << endl;
+        }
+        else {
+            cout << "Количество сыров 'пармезан' в дереве: " << brandCount << endl;
+        }
+
+
     }
     catch (const exception& e) {
         cerr << "Исключение: " << e.what() << endl;
